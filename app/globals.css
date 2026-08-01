@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html,
+  body {
+    /* Decorative blurred circles and floating cards use negative offsets
+       and can trigger a horizontal scrollbar on narrow viewports if a
+       browser rounds sizing slightly differently. This is a safety net,
+       not a fix for content that's meant to be scrollable (like the admin
+       table or date picker rows), which set their own overflow-x locally. */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-brand-light text-brand-dark antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 2px;
+  }
+
+  /* iOS Safari force-zooms the page when a focused input's font-size is
+     under 16px — every text input, select, and textarea in this app uses
+     Tailwind's text-sm (14px), which triggers it. This is the standard fix:
+     bump form-field text to 16px specifically on small viewports, where
+     Safari's zoom actually kicks in, without changing the visual size of
+     text everywhere else in the app. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto max-w-7xl px-6 lg:px-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-brand-blue px-6 py-3 text-sm font-semibold text-white shadow-soft transition-all duration-200 hover:bg-blue-800 active:scale-[0.98];
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 8px 24px -6px rgba(30, 64, 175, 0.45);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-brand-dark/10 bg-white px-6 py-3 text-sm font-semibold text-brand-dark transition-all duration-200 hover:border-brand-teal hover:text-brand-teal active:scale-[0.98];
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center rounded-full bg-brand-teal px-6 py-3 text-sm font-semibold text-white shadow-soft transition-all duration-200 hover:bg-teal-700 active:scale-[0.98];
+  }
+  .btn-accent:hover {
+    box-shadow: 0 8px 24px -6px rgba(13, 148, 136, 0.45);
+  }
+
+  .section-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.2em] text-brand-teal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

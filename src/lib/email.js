@@ -1,19 +1,21 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { CLINIC, formatPKR } from './constants';
 import { dayBoundsFromKey } from './dateUtils';
 
-let resendClient = null;
+let transporter = null;
 
-function getResendClient() {
-  if (!process.env.RESEND_API_KEY) return null;
-  if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
+function getTransporter() {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
   }
-  return resendClient;
-}
-
-function getFromAddress() {
-  return process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  return transporter;
 }
 
 /**
@@ -21,31 +23,33 @@ function getFromAddress() {
  * non-throwing for the same reason as the booking-confirmation flow: a
  * notification email failing should never roll back or fail the action
  * (booking, status change, etc.) that triggered it.
+ *
+ * Uses Gmail SMTP via an App Password rather than a transactional email
+ * provider — this avoids the sandbox-domain restriction that transactional
+ * providers impose on unverified custom domains (which only deliver to the
+ * account owner's own inbox until a domain is verified). A normal Gmail
+ * account can send to any recipient with no domain purchase required, up to
+ * roughly 500 messages/day.
  */
 async function sendEmail({ to, subject, html, text }) {
-  const client = getResendClient();
+  const client = getTransporter();
 
   if (!client) {
     console.warn(
-      `RESEND_API_KEY is not set — skipping email "${subject}" to ${to}. ` +
-        'Add RESEND_API_KEY to .env.local to enable real email delivery.'
+      `GMAIL_USER / GMAIL_APP_PASSWORD are not set — skipping email "${subject}" to ${to}. ` +
+        'Add both to .env.local to enable real email delivery.'
     );
     return { sent: false, reason: 'not_configured' };
   }
 
   try {
-    const { error } = await client.emails.send({
-      from: `${CLINIC.name} <${getFromAddress()}>`,
+    await client.sendMail({
+      from: `${CLINIC.name} <${process.env.GMAIL_USER}>`,
       to,
       subject,
       html,
       text,
     });
-
-    if (error) {
-      console.error('Resend API returned an error:', error);
-      return { sent: false, reason: 'resend_error', error };
-    }
 
     return { sent: true };
   } catch (err) {
@@ -154,10 +158,10 @@ function buildText({ patientName, service, dateKey, timeSlot, price, notes }) {
 }
 
 /**
- * Sends the patient a booking confirmation email via Resend.
+ * Sends the patient a booking confirmation email via Gmail SMTP.
  *
- * Deliberately non-throwing: if RESEND_API_KEY isn't set, or the Resend API
- * call fails for any reason (bad key, sandbox domain restrictions, etc.),
+ * Deliberately non-throwing: if GMAIL_USER/GMAIL_APP_PASSWORD aren't set, or
+ * the send fails for any reason (bad credentials, Gmail rate limit, etc.),
  * this logs the problem and resolves — it never blocks or fails the booking
  * itself. An appointment that was successfully saved to the database should
  * not be lost just because the notification email couldn't be sent.

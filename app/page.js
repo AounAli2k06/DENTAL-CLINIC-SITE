@@ -7,6 +7,7 @@ import BookingWidget from '@/components/BookingWidget';
 import FAQ from '@/components/FAQ';
 import Footer from '@/components/Footer';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import DemoNoticeToast from '@/components/DemoNoticeToast';
 
 export const metadata = {
   title: 'Home',
@@ -31,6 +32,7 @@ export default function HomePage() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <DemoNoticeToast />
     </>
   );
 }

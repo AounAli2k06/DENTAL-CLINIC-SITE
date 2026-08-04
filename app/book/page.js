@@ -2,6 +2,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BookingFlow from './BookingFlow';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import DemoNoticeToast from '@/components/DemoNoticeToast';
 
 export const metadata = {
   title: 'Book an Appointment',
@@ -21,6 +22,7 @@ export default function BookPage() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <DemoNoticeToast />
     </>
   );
 }

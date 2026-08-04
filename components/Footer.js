@@ -76,21 +76,43 @@ export default function Footer() {
               </a>
             </p>
           </address>
-          <div className="mt-4 h-32 w-full rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-xs text-slate-500">
-            Map placeholder — {CLINIC.address.city}, {CLINIC.address.region}
+          <div className="mt-4 h-40 w-full overflow-hidden rounded-xl border border-white/10">
+            <iframe
+              title={`${CLINIC.name} location map`}
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                `${CLINIC.address.street}, ${CLINIC.address.city}, ${CLINIC.address.region}, Pakistan`
+              )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+              width="100%"
+              height="100%"
+              style={{ border: 0, filter: 'grayscale(0.3) contrast(1.1)' }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
           </div>
         </div>
 
         <div>
           <h3 className="text-sm font-semibold text-white">Explore</h3>
           <ul className="mt-4 space-y-2 text-sm text-slate-400">
-            <li><a href="#services" className="hover:text-brand-teal">General Checkups</a></li>
-            <li><a href="#services" className="hover:text-brand-teal">Teeth Whitening</a></li>
-            <li><a href="#services" className="hover:text-brand-teal">Root Canal Therapy</a></li>
-            <li><a href="#services" className="hover:text-brand-teal">Orthodontics</a></li>
+            <li><Link href="/#services" className="hover:text-brand-teal">General Checkups</Link></li>
+            <li><Link href="/#services" className="hover:text-brand-teal">Teeth Whitening</Link></li>
+            <li><Link href="/#services" className="hover:text-brand-teal">Root Canal Therapy</Link></li>
+            <li><Link href="/#services" className="hover:text-brand-teal">Orthodontics</Link></li>
             <li><Link href="/book" className="hover:text-brand-teal">Book an Appointment</Link></li>
             <li><Link href="/admin/login" className="hover:text-brand-teal">Staff Login</Link></li>
           </ul>
+
+          <h3 className="mt-6 text-sm font-semibold text-white">We Accept</h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {['Cash', 'Card', 'EasyPaisa', 'JazzCash'].map((method) => (
+              <span
+                key={method}
+                className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300"
+              >
+                {method}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -6,12 +6,13 @@ import { CLINIC } from '@/src/lib/constants';
 import { toDateKey } from '@/src/lib/dateUtils';
 
 const NAV_ITEMS = [
-  { label: 'Overview', status: 'all', date: null, icon: 'grid' },
-  { label: "Today's Visits", status: 'all', date: 'today', icon: 'calendar' },
-  { label: 'Pending', status: 'pending', date: null, icon: 'clock' },
-  { label: 'Confirmed', status: 'confirmed', date: null, icon: 'check' },
-  { label: 'Completed', status: 'completed', date: null, icon: 'check-circle' },
-  { label: 'Cancelled', status: 'cancelled', date: null, icon: 'x' },
+  { type: 'filter', label: 'Overview', status: 'all', date: null, icon: 'grid' },
+  { type: 'filter', label: "Today's Visits", status: 'all', date: 'today', icon: 'calendar' },
+  { type: 'filter', label: 'Pending', status: 'pending', date: null, icon: 'clock' },
+  { type: 'filter', label: 'Confirmed', status: 'confirmed', date: null, icon: 'check' },
+  { type: 'filter', label: 'Completed', status: 'completed', date: null, icon: 'check-circle' },
+  { type: 'filter', label: 'Cancelled', status: 'cancelled', date: null, icon: 'x' },
+  { type: 'page', label: 'Analytics', href: '/admin/stats', icon: 'chart' },
 ];
 
 const ICONS = {
@@ -21,9 +22,11 @@ const ICONS = {
   check: <path d="m5 13 4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
   'check-circle': <><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" /><path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></>,
   x: <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />,
+  chart: <><path d="M4 20V10M12 20V4M20 20v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></>,
 };
 
-function buildHref(item) {
+function buildHref(item, pathname) {
+  if (item.type === 'page') return item.href;
   const params = new URLSearchParams();
   if (item.status !== 'all') params.set('status', item.status);
   if (item.date === 'today') params.set('date', toDateKey(new Date()));
@@ -31,7 +34,10 @@ function buildHref(item) {
   return `/admin${query ? `?${query}` : ''}`;
 }
 
-function isActive(item, searchParams) {
+function isActive(item, searchParams, pathname) {
+  if (item.type === 'page') return pathname === item.href;
+  if (pathname !== '/admin') return false;
+
   const status = searchParams.get('status') || 'all';
   const date = searchParams.get('date') || '';
   const wantsToday = item.date === 'today';
@@ -42,11 +48,11 @@ function isActive(item, searchParams) {
   return !date;
 }
 
-function NavLink({ item, searchParams }) {
-  const active = isActive(item, searchParams);
+function NavLink({ item, searchParams, pathname }) {
+  const active = isActive(item, searchParams, pathname);
   return (
     <Link
-      href={buildHref(item)}
+      href={buildHref(item, pathname)}
       className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
         active
           ? 'bg-brand-blue text-white'
@@ -89,7 +95,7 @@ export default function AdminShell({ email, children }) {
 
         <nav className="flex-1 space-y-1 px-4 py-6">
           {NAV_ITEMS.map((item) => (
-            <NavLink key={item.label} item={item} searchParams={searchParams} />
+            <NavLink key={item.label} item={item} searchParams={searchParams} pathname={pathname} />
           ))}
         </nav>
 
@@ -142,11 +148,11 @@ export default function AdminShell({ email, children }) {
         {/* Mobile quick-nav */}
         <div className="flex gap-2 overflow-x-auto border-b border-brand-dark/5 bg-white px-4 py-3 lg:hidden">
           {NAV_ITEMS.map((item) => {
-            const active = isActive(item, searchParams);
+            const active = isActive(item, searchParams, pathname);
             return (
               <Link
                 key={item.label}
-                href={buildHref(item)}
+                href={buildHref(item, pathname)}
                 className={`flex-shrink-0 rounded-full px-4 py-2 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-brand-blue text-white'

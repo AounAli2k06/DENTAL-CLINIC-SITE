@@ -3,6 +3,7 @@ export const CLINIC = {
   shortName: 'BrightSmile',
   phone: '+92 21 3456 7890',
   emergencyPhone: '+92 300 123 4567',
+  whatsapp: '+923001234567', // digits only (with country code), as WhatsApp's link format requires
   email: 'hello@brightsmiledental.pk',
   address: {
     street: 'Plot 14-C, Khayaban-e-Shahbaz, DHA Phase 6',

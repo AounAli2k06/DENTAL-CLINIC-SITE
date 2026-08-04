@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MetricCard from './MetricCard';
 import AppointmentsTable from './AppointmentsTable';
@@ -13,6 +13,8 @@ const VIEW_TITLES = {
   completed: 'Completed appointments',
   cancelled: 'Cancelled appointments',
 };
+
+const POLL_INTERVAL_MS = 20000;
 
 export default function Dashboard() {
   const router = useRouter();
@@ -31,43 +33,113 @@ export default function Dashboard() {
   const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
   const [retryToken, setRetryToken] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [newBookingCount, setNewBookingCount] = useState(0);
+  const [tick, setTick] = useState(0); // forces re-render so "updated Xs ago" stays live
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    const params = new URLSearchParams();
-    if (status !== 'all') params.set('status', status);
-    if (date) params.set('date', date);
-    if (search) params.set('search', search);
+  const previousTotalRef = useRef(null);
+  const isFirstLoadRef = useRef(true);
 
-    try {
-      const res = await fetch(`/api/appointments?${params.toString()}`);
+  const fetchData = useCallback(
+    async ({ background = false } = {}) => {
+      if (!background) setLoading(true);
+      setLoadError('');
+      const params = new URLSearchParams();
+      if (status !== 'all') params.set('status', status);
+      if (date) params.set('date', date);
+      if (search) params.set('search', search);
 
-      if (res.status === 401) {
-        router.push('/admin/login');
-        return;
+      try {
+        const res = await fetch(`/api/appointments?${params.toString()}`);
+
+        if (res.status === 401) {
+          router.push('/admin/login');
+          return;
+        }
+
+        const data = await safeJson(res);
+
+        if (!res.ok) {
+          setLoadError(data.error || 'Failed to load appointments.');
+          return;
+        }
+
+        const nextMetrics = data.metrics || { total: 0, pending: 0, confirmed: 0, today: 0 };
+
+        // Detect new bookings that arrived since the last poll, so the
+        // admin doesn't have to notice the number changed on their own —
+        // this only fires on background polls (not the very first load,
+        // and not right after the admin's own action, since those already
+        // call fetchData() directly and update previousTotalRef in step).
+        if (
+          !isFirstLoadRef.current &&
+          previousTotalRef.current !== null &&
+          nextMetrics.total > previousTotalRef.current
+        ) {
+          setNewBookingCount((c) => c + (nextMetrics.total - previousTotalRef.current));
+        }
+
+        previousTotalRef.current = nextMetrics.total;
+        isFirstLoadRef.current = false;
+
+        setAppointments(data.appointments || []);
+        setMetrics(nextMetrics);
+        setLastUpdated(Date.now());
+      } catch (err) {
+        // Background polls fail silently rather than showing a full error
+        // screen over data that's still perfectly readable — a transient
+        // network blip every 20s shouldn't interrupt someone mid-task.
+        if (!background) {
+          setLoadError(err.message || 'Could not reach the server. Check your connection and try again.');
+        }
+      } finally {
+        if (!background) setLoading(false);
       }
-
-      const data = await safeJson(res);
-
-      if (!res.ok) {
-        setLoadError(data.error || 'Failed to load appointments.');
-        return;
-      }
-
-      setAppointments(data.appointments || []);
-      setMetrics(data.metrics || { total: 0, pending: 0, confirmed: 0, today: 0 });
-    } catch (err) {
-      setLoadError(err.message || 'Could not reach the server. Check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [status, date, search, router]);
+    },
+    [status, date, search, router]
+  );
 
   useEffect(() => {
-    const t = setTimeout(fetchData, search ? 300 : 0);
+    const t = setTimeout(() => fetchData(), search ? 300 : 0);
     return () => clearTimeout(t);
   }, [fetchData, search, retryToken]);
+
+  // Live polling — pauses while the tab isn't visible, so it's not burning
+  // API calls (and serverless function invocations) on a background tab.
+  useEffect(() => {
+    let interval = null;
+
+    function startPolling() {
+      if (interval) return;
+      interval = setInterval(() => fetchData({ background: true }), POLL_INTERVAL_MS);
+    }
+    function stopPolling() {
+      if (interval) clearInterval(interval);
+      interval = null;
+    }
+
+    function handleVisibility() {
+      if (document.hidden) stopPolling();
+      else {
+        fetchData({ background: true }); // catch up immediately on return
+        startPolling();
+      }
+    }
+
+    if (!document.hidden) startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [fetchData]);
+
+  // Keeps "Updated Xs ago" ticking without re-fetching anything.
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   function updateDateFilter(newDate) {
     const params = new URLSearchParams(searchParams.toString());
@@ -125,12 +197,44 @@ export default function Dashboard() {
     }
   }
 
+  function timeAgoLabel() {
+    if (!lastUpdated) return '';
+    const seconds = Math.max(0, Math.round((Date.now() - lastUpdated) / 1000));
+    if (seconds < 5) return 'Updated just now';
+    if (seconds < 60) return `Updated ${seconds}s ago`;
+    return `Updated ${Math.round(seconds / 60)}m ago`;
+  }
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-display text-2xl font-medium text-brand-dark">Dashboard overview</h1>
-        <p className="mt-1 text-sm text-brand-dark/50">Manage bookings and track your schedule at a glance.</p>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="font-display text-2xl font-medium text-brand-dark">Dashboard overview</h1>
+          <p className="mt-1 text-sm text-brand-dark/50">Manage bookings and track your schedule at a glance.</p>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-brand-dark/40">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-teal opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-teal" />
+          </span>
+          {timeAgoLabel()}
+        </div>
       </div>
+
+      {newBookingCount > 0 && (
+        <button
+          onClick={() => {
+            setNewBookingCount(0);
+            router.push('/admin');
+          }}
+          className="mb-6 flex w-full items-center justify-between rounded-xl border border-brand-teal/20 bg-brand-teal/5 px-4 py-3 text-sm text-brand-teal transition-colors hover:bg-brand-teal/10"
+        >
+          <span className="font-medium">
+            {newBookingCount} new booking{newBookingCount > 1 ? 's' : ''} just came in
+          </span>
+          <span className="font-semibold underline underline-offset-2">View</span>
+        </button>
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard

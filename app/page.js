@@ -4,7 +4,9 @@ import Services from '@/components/Services';
 import About from '@/components/About';
 import Testimonials from '@/components/Testimonials';
 import BookingWidget from '@/components/BookingWidget';
+import FAQ from '@/components/FAQ';
 import Footer from '@/components/Footer';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
 export const metadata = {
   title: 'Home',
@@ -25,8 +27,10 @@ export default function HomePage() {
         <About />
         <Testimonials />
         <BookingWidget />
+        <FAQ />
       </main>
       <Footer />
+      <WhatsAppButton />
     </>
   );
 }

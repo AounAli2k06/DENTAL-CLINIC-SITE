@@ -1,13 +1,61 @@
 /**
- * Seeds example appointments so the admin dashboard isn't empty on first
- * run. Safe to run multiple times — it clears only the appointments it
- * previously seeded (tagged via a fixed set of patient emails) rather than
- * wiping your real data.
+ * Seeds example appointments so the admin dashboard AND the analytics page
+ * aren't empty on first run. Safe to run multiple times — it clears only
+ * appointments tagged with a fixed seed marker in the email domain, rather
+ * than wiping your real data.
  *
  * Usage: npm run seed-appointments
  */
 require('dotenv').config({ path: '.env.local' });
 const mongoose = require('mongoose');
+
+const SEED_EMAIL_DOMAIN = 'example-seed.pk';
+
+const FIRST_NAMES = [
+  'Ayesha', 'Bilal', 'Sana', 'Omar', 'Hira', 'Danish', 'Zainab', 'Fahad',
+  'Mariam', 'Usman', 'Areeba', 'Hamza', 'Noor', 'Talha', 'Fatima', 'Saad',
+];
+const LAST_NAMES = [
+  'Raza', 'Ahmed', 'Malik', 'Farooq', 'Sheikh', 'Iqbal', 'Hussain', 'Khan',
+];
+
+const SERVICES = [
+  'General Checkup & Cleaning',
+  'Teeth Whitening',
+  'Root Canal Therapy',
+  'Orthodontics & Aligners',
+];
+
+const TIME_SLOTS = [
+  '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM', '02:00 PM', '02:30 PM',
+  '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
+];
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function dayOffset(days) {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+// Weighted so most seeded appointments look realistically resolved
+// (confirmed/completed) rather than an implausible all-pending backlog.
+function randomStatus(isPast) {
+  const roll = Math.random();
+  if (isPast) {
+    if (roll < 0.75) return 'completed';
+    if (roll < 0.9) return 'cancelled';
+    return 'confirmed';
+  }
+  if (roll < 0.55) return 'confirmed';
+  if (roll < 0.85) return 'pending';
+  return 'cancelled';
+}
 
 async function main() {
   const { MONGODB_URI } = process.env;
@@ -35,93 +83,52 @@ async function main() {
 
   const Appointment = mongoose.models.Appointment || mongoose.model('Appointment', AppointmentSchema);
 
-  const SEED_TAG_EMAILS = [
-    'ayesha.raza@example.pk',
-    'bilal.ahmed@example.pk',
-    'sana.malik@example.pk',
-    'omar.farooq@example.pk',
-    'hira.sheikh@example.pk',
-    'danish.iqbal@example.pk',
-  ];
-
   // Clean up any previously-seeded example data before re-seeding, so
   // running this script twice doesn't duplicate rows.
-  await Appointment.deleteMany({ email: { $in: SEED_TAG_EMAILS } });
+  await Appointment.deleteMany({ email: { $regex: `@${SEED_EMAIL_DOMAIN}$` } });
 
-  function dayOffset(days) {
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d;
+  const seedData = [];
+  const usedSlotsByDate = new Map();
+
+  // Spread across the last 30 days through 3 days ahead, 1-3 bookings per
+  // day, so the analytics chart on /admin/stats has a realistic-looking
+  // 30-day trend instead of a single flat spike.
+  for (let dayOffsetValue = -29; dayOffsetValue <= 3; dayOffsetValue++) {
+    const bookingsToday = Math.floor(Math.random() * 3); // 0, 1, or 2
+    const date = dayOffset(dayOffsetValue);
+    const dateKey = date.toISOString().slice(0, 10);
+
+    for (let i = 0; i < bookingsToday; i++) {
+      let slot;
+      let attempts = 0;
+      do {
+        slot = pick(TIME_SLOTS);
+        attempts++;
+      } while (usedSlotsByDate.get(dateKey)?.has(slot) && attempts < 10);
+
+      if (!usedSlotsByDate.has(dateKey)) usedSlotsByDate.set(dateKey, new Set());
+      usedSlotsByDate.get(dateKey).add(slot);
+
+      const firstName = pick(FIRST_NAMES);
+      const lastName = pick(LAST_NAMES);
+
+      seedData.push({
+        patientName: `${firstName} ${lastName}`,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${dayOffsetValue}.${i}@${SEED_EMAIL_DOMAIN}`,
+        phone: `+92 3${Math.floor(Math.random() * 10)}${Math.floor(Math.random() * 10)} ${Math.floor(1000000 + Math.random() * 8999999)}`,
+        service: pick(SERVICES),
+        date,
+        timeSlot: slot,
+        status: randomStatus(dayOffsetValue < 0),
+        notes: '',
+      });
+    }
   }
-
-  const seedData = [
-    {
-      patientName: 'Ayesha Raza',
-      email: 'ayesha.raza@example.pk',
-      phone: '+92 300 111 2222',
-      service: 'General Checkup & Cleaning',
-      date: dayOffset(0),
-      timeSlot: '11:00 AM',
-      status: 'confirmed',
-      notes: '',
-    },
-    {
-      patientName: 'Bilal Ahmed',
-      email: 'bilal.ahmed@example.pk',
-      phone: '+92 301 222 3333',
-      service: 'Orthodontics & Aligners',
-      date: dayOffset(0),
-      timeSlot: '03:00 PM',
-      status: 'pending',
-      notes: 'First consultation for clear aligners.',
-    },
-    {
-      patientName: 'Sana Malik',
-      email: 'sana.malik@example.pk',
-      phone: '+92 302 333 4444',
-      service: 'Teeth Whitening',
-      date: dayOffset(1),
-      timeSlot: '12:00 PM',
-      status: 'confirmed',
-      notes: '',
-    },
-    {
-      patientName: 'Omar Farooq',
-      email: 'omar.farooq@example.pk',
-      phone: '+92 303 444 5555',
-      service: 'Root Canal Therapy',
-      date: dayOffset(2),
-      timeSlot: '02:30 PM',
-      status: 'pending',
-      notes: 'Sensitivity on upper left molar.',
-    },
-    {
-      patientName: 'Hira Sheikh',
-      email: 'hira.sheikh@example.pk',
-      phone: '+92 304 555 6666',
-      service: 'General Checkup & Cleaning',
-      date: dayOffset(-2),
-      timeSlot: '10:30 AM',
-      status: 'completed',
-      notes: '',
-    },
-    {
-      patientName: 'Danish Iqbal',
-      email: 'danish.iqbal@example.pk',
-      phone: '+92 305 666 7777',
-      service: 'Teeth Whitening',
-      date: dayOffset(-5),
-      timeSlot: '05:00 PM',
-      status: 'cancelled',
-      notes: 'Rescheduling requested by patient.',
-    },
-  ];
 
   await Appointment.insertMany(seedData);
 
-  console.log(`Seeded ${seedData.length} example appointments.`);
-  console.log('Run this script again any time to reset the example data.');
+  console.log(`Seeded ${seedData.length} example appointments spread across the last 30 days.`);
+  console.log('Run this script again any time to reset and regenerate the example data.');
 
   await mongoose.disconnect();
   process.exit(0);

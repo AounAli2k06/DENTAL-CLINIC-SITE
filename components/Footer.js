@@ -121,6 +121,13 @@ export default function Footer() {
           <p>&copy; {new Date().getFullYear()} {CLINIC.name}. All rights reserved.</p>
           <p>Emergency line: {CLINIC.emergencyPhone}</p>
         </div>
+        <div className="container-page mt-3">
+          <p className="text-center text-[11px] leading-relaxed text-slate-600">
+            This website is a demo/practice project built to showcase web development —
+            it does not represent a real medical practice, and no appointment booked
+            here is reviewed or fulfilled by an actual dentist.
+          </p>
+        </div>
       </div>
     </footer>
   );

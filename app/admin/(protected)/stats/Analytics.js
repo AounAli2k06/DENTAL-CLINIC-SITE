@@ -79,12 +79,16 @@ export default function Analytics() {
         </p>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard label="This Month's Bookings" value={stats.thisMonthBookings} tone="blue" />
         <MetricCard
           label="Est. Revenue This Month"
           value={formatPKR(stats.revenue.thisMonth)}
           tone="teal"
+        />
+        <MetricCard
+          label="Est. Revenue Last Month"
+          value={formatPKR(stats.revenue.lastMonth)}
         />
         <MetricCard
           label="Vs. Last Month"

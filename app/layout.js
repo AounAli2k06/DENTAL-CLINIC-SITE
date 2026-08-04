@@ -60,8 +60,8 @@ export const metadata = {
     images: ['/og-image.jpg'],
   },
   robots: {
-    index: true,
-    follow: true,
+    index: false,
+    follow: false,
   },
   alternates: {
     canonical: siteUrl,
